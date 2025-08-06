@@ -1,1 +1,17 @@
 # Kung Fu Chess Gymnasium Environment
+
+## Kung Fu Chess Rules
+
+- Pieces all move at the same time.
+- A cooldown is applied after a piece moves before it can move again.
+  The length of the cooldown and how fast the pieces move vary on game speed.
+- All the normal rules of chess apply, but there is no such thing as checkmate, you must kill the King to win.
+- If two enemy pieces collide while they are both moving the piece that moved first kills the other piece. Knights can't collide.
+- Warning, if the knight lands on a occupied spot, that piece must be killed. This is the only way you can kill your own pieces.
+- You can make certain illegal chess moves (such as move through pieces), because you may be able to move those pieces out of the way in time, or the enemy might move their pieces before you get there.
+- There are two modes, "standard" and "lightning". In standard the pieces take 10 seconds to recharge, and move one square per second. In lightning they pieces take a fifth of a second to recharge, and five squares per second.
+
+## Kung Fu Chess Game Speeds
+
+- Standard: 10 seconds cooldown, 1 square per second.
+- Lightning: 0.2 seconds cooldown, 5 squares per second.
