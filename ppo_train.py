@@ -60,15 +60,14 @@ def train_ppo_agent(
     print(f"Total timesteps: {total_timesteps:,}")
     print(f"Parallel environments: {n_envs}")
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
+    print(f"Environment type: DummyVecEnv (WSL compatible)")
     
     # Create vectorized environment
-    if n_envs == 1:
-        env = DummyVecEnv([make_env(game_mode, 0)])
-    else:
-        env = SubprocVecEnv([make_env(game_mode, i) for i in range(n_envs)])
+    # Use DummyVecEnv for WSL compatibility (avoids multiprocessing issues)
+    env = DummyVecEnv([make_env(game_mode, i) for i in range(n_envs)])
     
-    # Create evaluation environment
-    eval_env = DummyVecEnv([make_env(game_mode, 999)])
+    # Create evaluation environment (same type as training env)
+    # eval_env = DummyVecEnv([make_env(game_mode, 999)])
     
     # PPO hyperparameters optimized for complex environments
     model = PPO(
@@ -98,23 +97,25 @@ def train_ppo_agent(
     )
     
     # Callbacks for monitoring and checkpointing
-    eval_callback = EvalCallback(
-        eval_env,
-        best_model_save_path=save_path + "_best",
-        log_path=log_path,
-        eval_freq=10000,  # Evaluate every 10k steps
-        n_eval_episodes=10,
-        deterministic=True,
-        render=False
-    )
+    # eval_callback = EvalCallback(
+    #     # eval_env,
+    #     best_model_save_path=save_path + "_best",
+    #     log_path=log_path,
+    #     eval_freq=25000,  # Evaluate every 25k steps (less frequent for WSL)
+    #     n_eval_episodes=5,   # Fewer episodes for faster evaluation
+    #     deterministic=True,
+    #     render=False,
+    #     verbose=1  # Add verbose output for debugging
+    # )
     
     checkpoint_callback = CheckpointCallback(
-        save_freq=50000,  # Save every 50k steps
+        save_freq=10000,  # Save every 50k steps
         save_path=save_path + "_checkpoints",
         name_prefix="ppo_kung_fu_chess"
     )
     
-    callback_list = CallbackList([eval_callback, checkpoint_callback])
+    # callback_list = CallbackList([eval_callback, checkpoint_callback])
+    callback_list = CallbackList([checkpoint_callback])
     
     # Train the agent
     start_time = time.time()
@@ -139,7 +140,7 @@ def train_ppo_agent(
     
     finally:
         env.close()
-        eval_env.close()
+        # eval_env.close()
 
 
 if __name__ == "__main__":
