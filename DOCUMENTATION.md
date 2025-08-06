@@ -187,27 +187,61 @@ for step in range(1000):
 env.close()
 ```
 
-### Training with Stable-Baselines3
-```python
-from stable_baselines3 import PPO
-from kung_fu_chess_env import KungFuChessEnv, GameMode
+### Training with PPO (Recommended)
 
-# Create environment
-env = KungFuChessEnv(mode=GameMode.LIGHTNING)
+The project includes professional PPO training and evaluation scripts:
 
-# Train agent
-model = PPO("MultiInputPolicy", env, verbose=1)
-model.learn(total_timesteps=100000)
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-# Test trained agent
-obs, info = env.reset()
-for _ in range(100):
-    action, _states = model.predict(obs)
-    obs, reward, terminated, truncated, info = env.step(action)
-    if terminated:
-        break
+# Train agent (100k timesteps, ~30-60 minutes)
+python ppo_train.py
 
-env.close()
+# Evaluate trained agent
+python ppo_eval.py
+```
+
+**Training Features:**
+- Vectorized environments for 4x faster training
+- Optimized hyperparameters for chess environments
+- TensorBoard logging and monitoring
+- Automatic model checkpointing and evaluation
+- Best model saving based on performance
+
+**Evaluation Features:**
+- Comprehensive performance metrics
+- Statistical analysis across 100 games
+- Visualization plots and charts
+- Win/loss rate analysis
+- Reward component breakdown
+
+## Training and Evaluation Guide
+
+For comprehensive training and evaluation instructions, see **[TRAINING_GUIDE.md](TRAINING_GUIDE.md)** which covers:
+
+- **Training Deep Dive**: Hyperparameters, network architecture, and configuration options
+- **Evaluation Analysis**: Understanding metrics, performance indicators, and results interpretation
+- **Monitoring**: TensorBoard usage, progress tracking, and debugging techniques
+- **Advanced Techniques**: Curriculum learning, self-play, and multi-agent training
+- **Troubleshooting**: Common issues and solutions for training problems
+- **Best Practices**: Systematic experimentation and optimization strategies
+
+### Quick Training Commands
+
+```bash
+# Basic training (100k timesteps, ~30-60 minutes)
+python ppo_train.py
+
+# Monitor training progress
+tensorboard --logdir ./logs/
+
+# Evaluate trained agent
+python ppo_eval.py
+
+# View training outputs
+ls ./models/          # Trained models
+ls ./logs/            # Training logs
 ```
 
 ## Testing

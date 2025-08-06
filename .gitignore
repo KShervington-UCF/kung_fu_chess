@@ -2,3 +2,9 @@
 prompt.md
 
 __pycache__
+
+models/**
+logs/** 
+
+# Model files
+*.zip
