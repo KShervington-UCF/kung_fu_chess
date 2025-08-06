@@ -79,6 +79,16 @@ class KungFuChessEnv(gym.Env):
         # Board dimensions
         self.board_size = 8
         
+        # Piece values for reward calculation
+        self.piece_values = {
+            PieceType.PAWN: 1.0,
+            PieceType.KNIGHT: 3.0,
+            PieceType.BISHOP: 3.0,
+            PieceType.ROOK: 5.0,
+            PieceType.QUEEN: 9.0,
+            PieceType.KING: 100.0  # Massive value for winning
+        }
+        
         # Define action space: (piece_index, target_row, target_col)
         # piece_index: 0-15 for each player's pieces
         # target_row, target_col: 0-7 for board positions
@@ -97,6 +107,7 @@ class KungFuChessEnv(gym.Env):
         })
         
         # Initialize game state
+        self.captured_pieces = []  # Track captured pieces for rewards
         self.reset()
         
         # Pygame initialization for rendering
@@ -115,6 +126,7 @@ class KungFuChessEnv(gym.Env):
         self.game_start_time = time.time()
         self.game_over = False
         self.winner = None
+        self.captured_pieces = []  # Reset captured pieces tracking
         
         # Initialize pieces
         self.pieces: Dict[Color, List[Piece]] = {
@@ -159,6 +171,9 @@ class KungFuChessEnv(gym.Env):
         # Get current player's pieces
         player_pieces = self.pieces[self.current_player]
         
+        # Store initial state for reward calculation
+        initial_piece_count = {color: len(pieces) for color, pieces in self.pieces.items()}
+        
         # Validate piece index
         if piece_index >= len(player_pieces):
             # Invalid piece index - no action taken
@@ -170,11 +185,17 @@ class KungFuChessEnv(gym.Env):
         # Update all moving pieces
         self._update_moving_pieces(current_time)
         
-        # Check for collisions
-        self._resolve_collisions(current_time)
+        # Check for collisions and calculate capture rewards
+        capture_reward = self._resolve_collisions(current_time)
+        reward += capture_reward
         
-        # Check win condition
-        self._check_win_condition()
+        # Add positional rewards
+        positional_reward = self._calculate_positional_reward()
+        reward += positional_reward
+        
+        # Check win condition and add win/loss rewards
+        win_reward = self._check_win_condition()
+        reward += win_reward
         
         # Switch player (in real-time, both players can act simultaneously)
         # For RL training, we alternate turns but with very short intervals
@@ -185,7 +206,10 @@ class KungFuChessEnv(gym.Env):
         truncated = False
         info = {
             'winner': self.winner,
-            'game_time': current_time - self.game_start_time
+            'game_time': current_time - self.game_start_time,
+            'capture_reward': capture_reward,
+            'positional_reward': positional_reward,
+            'win_reward': win_reward
         }
         
         return observation, reward, terminated, truncated, info
@@ -296,8 +320,10 @@ class KungFuChessEnv(gym.Env):
         distance = max(abs(end_pos[0] - start_pos[0]), abs(end_pos[1] - start_pos[1]))
         return distance / self.move_speed
     
-    def _resolve_collisions(self, current_time: float):
-        """Resolve collisions between pieces"""
+    def _resolve_collisions(self, current_time: float) -> float:
+        """Resolve collisions between pieces and return capture rewards"""
+        capture_reward = 0.0
+        
         # Group pieces by target position
         position_groups: Dict[Tuple[int, int], List[Piece]] = {}
         
@@ -308,6 +334,22 @@ class KungFuChessEnv(gym.Env):
                     if pos not in position_groups:
                         position_groups[pos] = []
                     position_groups[pos].append(piece)
+        
+        # Check for regular captures (piece landing on occupied square)
+        for color_pieces in self.pieces.values():
+            for piece in color_pieces:
+                if piece.is_moving and piece.target_position:
+                    target_piece = self._get_piece_at(piece.target_position)
+                    if target_piece and target_piece.color != piece.color:
+                        # Capture!
+                        piece_value = self.piece_values[target_piece.piece_type]
+                        if piece.color == self.current_player:
+                            capture_reward += piece_value  # Reward for capturing
+                        else:
+                            capture_reward -= piece_value  # Penalty for losing piece
+                        
+                        self.captured_pieces.append(target_piece)
+                        self._remove_piece(target_piece)
         
         # Resolve collisions
         for pos, pieces_list in position_groups.items():
@@ -326,9 +368,18 @@ class KungFuChessEnv(gym.Env):
                     winner = min(knights, key=lambda p: p.move_start_time)
                     losers = [p for p in pieces_list if p != winner]
                 
-                # Remove losing pieces
+                # Calculate collision rewards
                 for loser in losers:
+                    piece_value = self.piece_values[loser.piece_type]
+                    if winner.color == self.current_player:
+                        capture_reward += piece_value * 0.5  # Partial reward for collision win
+                    else:
+                        capture_reward -= piece_value * 0.5  # Penalty for collision loss
+                    
+                    self.captured_pieces.append(loser)
                     self._remove_piece(loser)
+        
+        return capture_reward
     
     def _remove_piece(self, piece: Piece):
         """Remove a piece from the game"""
@@ -337,17 +388,74 @@ class KungFuChessEnv(gym.Env):
                 color_pieces.remove(piece)
                 break
     
-    def _check_win_condition(self):
-        """Check if game is over (King captured)"""
+    def _check_win_condition(self) -> float:
+        """Check if game is over (King captured) and return win/loss rewards"""
         white_king_alive = any(p.piece_type == PieceType.KING for p in self.pieces[Color.WHITE])
         black_king_alive = any(p.piece_type == PieceType.KING for p in self.pieces[Color.BLACK])
+        
+        win_reward = 0.0
         
         if not white_king_alive:
             self.game_over = True
             self.winner = Color.BLACK
+            # Massive reward/penalty for game outcome
+            if self.current_player == Color.BLACK:
+                win_reward = 1000.0  # Huge reward for winning
+            else:
+                win_reward = -1000.0  # Huge penalty for losing
+                
         elif not black_king_alive:
             self.game_over = True
             self.winner = Color.WHITE
+            # Massive reward/penalty for game outcome
+            if self.current_player == Color.WHITE:
+                win_reward = 1000.0  # Huge reward for winning
+            else:
+                win_reward = -1000.0  # Huge penalty for losing
+        
+        return win_reward
+    
+    def _calculate_positional_reward(self) -> float:
+        """Calculate positional rewards based on chess principles"""
+        positional_reward = 0.0
+        
+        for color, pieces in self.pieces.items():
+            color_multiplier = 1.0 if color == self.current_player else -1.0
+            
+            for piece in pieces:
+                if piece.is_moving:
+                    continue  # Skip moving pieces
+                
+                row, col = piece.position
+                piece_reward = 0.0
+                
+                # Center control bonus
+                center_distance = abs(row - 3.5) + abs(col - 3.5)
+                piece_reward += (7 - center_distance) * 0.01  # Small bonus for center control
+                
+                # Piece-specific positional rewards
+                if piece.piece_type == PieceType.PAWN:
+                    # Pawn advancement bonus
+                    if color == Color.WHITE:
+                        piece_reward += (6 - row) * 0.05  # Reward advancing pawns
+                    else:
+                        piece_reward += (row - 1) * 0.05  # Reward advancing pawns
+                
+                elif piece.piece_type == PieceType.KNIGHT:
+                    # Knights better in center
+                    piece_reward += (4 - center_distance) * 0.02
+                
+                elif piece.piece_type == PieceType.KING:
+                    # King safety (stay back early game)
+                    if len(self.captured_pieces) < 8:  # Early/mid game
+                        if color == Color.WHITE:
+                            piece_reward += max(0, row - 5) * 0.03  # Stay on back ranks
+                        else:
+                            piece_reward += max(0, 2 - row) * 0.03  # Stay on back ranks
+                
+                positional_reward += piece_reward * color_multiplier
+        
+        return positional_reward * 0.1  # Scale down positional rewards
     
     def _get_observation(self):
         """Get current observation"""

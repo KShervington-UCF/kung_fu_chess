@@ -69,9 +69,31 @@ The observation space is a dictionary containing:
 
 ### Rewards
 
+The reward system is designed to encourage strategic play and learning:
+
+**Basic Action Rewards:**
 - `+0.1`: Valid move attempt
 - `-0.1`: Invalid action (cooldown violation, moving already moving piece)
 - `-0.2`: Invalid move (illegal chess move)
+
+**Piece Capture Rewards:**
+- `+1.0`: Capturing enemy pawn
+- `+3.0`: Capturing enemy knight or bishop
+- `+5.0`: Capturing enemy rook
+- `+9.0`: Capturing enemy queen
+- `+100.0`: Capturing enemy king (winning)
+- Negative equivalents for losing pieces
+- `+0.5x piece_value`: Winning collision (partial reward)
+
+**Game Outcome Rewards:**
+- `+1000.0`: Winning the game (capturing enemy king)
+- `-1000.0`: Losing the game (losing your king)
+
+**Positional Rewards (small bonuses):**
+- Center control: Small bonus for pieces near board center
+- Pawn advancement: Bonus for advancing pawns toward promotion
+- Knight centralization: Knights perform better in center
+- King safety: Early game bonus for keeping king protected
 
 ## Game Rules
 
