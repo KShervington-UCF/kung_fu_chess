@@ -76,7 +76,15 @@ class PPOEvaluator:
         
         for step in range(max_steps):
             action, _states = self.model.predict(obs, deterministic=deterministic)
+
+            # Perform random action || THIS IS FOR DEBUGGING
+            # action = env.action_space.sample()
+
             obs, reward, terminated, truncated, info = env.step(action)
+
+
+            # Print action and reward for debugging
+            print(f"Step {step}: Action={action}, Reward={reward:.2f}")
             
             total_reward += reward
             capture_reward_sum += info.get('capture_reward', 0)
@@ -110,7 +118,7 @@ class PPOEvaluator:
     
     def evaluate_multiple_games(
         self, 
-        n_games: int = 100, 
+        n_games: int = 10, 
         deterministic: bool = True
     ) -> List[GameStats]:
         """Evaluate multiple games and return statistics"""
@@ -287,19 +295,19 @@ def main():
         
         # Option 1: Single game with visualization
         print("Running single game with visualization...")
-        single_stats = evaluator.evaluate_single_game(render=True, max_steps=500)
+        single_stats = evaluator.evaluate_single_game(render=True, max_steps=500, deterministic=False)
         print(f"Single game result: Reward={single_stats.total_reward:.2f}, Winner={single_stats.winner}")
         
         # Option 2: Multiple games for statistics
-        print(f"\nRunning {N_EVAL_GAMES} games for statistical analysis...")
-        stats_list = evaluator.evaluate_multiple_games(N_EVAL_GAMES, deterministic=True)
+        # print(f"\nRunning {N_EVAL_GAMES} games for statistical analysis...")
+        # stats_list = evaluator.evaluate_multiple_games(N_EVAL_GAMES, deterministic=True)
         
-        # Analyze and print results
-        analysis = evaluator.analyze_performance(stats_list)
-        evaluator.print_analysis(analysis)
+        # # Analyze and print results
+        # analysis = evaluator.analyze_performance(stats_list)
+        # evaluator.print_analysis(analysis)
         
-        # Plot results
-        evaluator.plot_performance(stats_list, "./evaluation_results.png")
+        # # Plot results
+        # evaluator.plot_performance(stats_list, "./evaluation_results/evaluation_results.png")
         
     except FileNotFoundError as e:
         print(f"Error: {e}")

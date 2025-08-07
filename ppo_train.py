@@ -35,7 +35,7 @@ def make_env(game_mode: GameMode = GameMode.LIGHTNING, rank: int = 0) -> Callabl
 
 
 def train_ppo_agent(
-    total_timesteps: int = 1_000_000,
+    total_timesteps: int = 100_000,
     game_mode: GameMode = GameMode.LIGHTNING,
     n_envs: int = 4,
     save_path: str = "./models/ppo_kung_fu_chess",
@@ -109,7 +109,7 @@ def train_ppo_agent(
     # )
     
     checkpoint_callback = CheckpointCallback(
-        save_freq=10000,  # Save every 50k steps
+        save_freq=100_000,  # Number of timesteps between checkpoints
         save_path=save_path + "_checkpoints",
         name_prefix="ppo_kung_fu_chess"
     )
@@ -145,7 +145,7 @@ def train_ppo_agent(
 
 if __name__ == "__main__":
     # Training configuration
-    TOTAL_TIMESTEPS = 100_000  # 1M timesteps for good learning
+    TOTAL_TIMESTEPS = 1_000_000  # 1M timesteps for good learning
     GAME_MODE = GameMode.LIGHTNING  # Fast-paced training
     N_ENVS = 4  # Parallel environments for faster training
     
