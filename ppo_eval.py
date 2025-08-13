@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 from kung_fu_chess_env import KungFuChessEnv, GameMode, Color
 
 
@@ -51,7 +51,7 @@ class PPOEvaluator:
             raise FileNotFoundError(f"Model not found at {self.model_path}")
         
         print(f"Loading model from {self.model_path}")
-        self.model = PPO.load(self.model_path)
+        self.model = MaskablePPO.load(self.model_path)
         print("Model loaded successfully")
     
     def evaluate_single_game(
@@ -285,7 +285,7 @@ def main():
     """Main evaluation function"""
     
     # Configuration
-    MODEL_PATH = "./models/ppo_kung_fu_chess_best.zip"  # Use best model
+    MODEL_PATH = "./models/ppo_kung_fu_chess_final.zip"  # Use best model
     GAME_MODE = GameMode.LIGHTNING
     N_EVAL_GAMES = 100
     
@@ -295,7 +295,7 @@ def main():
         
         # Option 1: Single game with visualization
         print("Running single game with visualization...")
-        single_stats = evaluator.evaluate_single_game(render=True, max_steps=500, deterministic=False)
+        single_stats = evaluator.evaluate_single_game(render=True, max_steps=1000, deterministic=False)
         print(f"Single game result: Reward={single_stats.total_reward:.2f}, Winner={single_stats.winner}")
         
         # Option 2: Multiple games for statistics

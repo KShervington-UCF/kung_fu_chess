@@ -92,7 +92,9 @@ class KungFuChessEnv(gym.Env):
         # Define action space: (piece_index, target_row, target_col)
         # piece_index: 0-15 for each player's pieces
         # target_row, target_col: 0-7 for board positions
-        self.action_space = spaces.MultiDiscrete([16, 8, 8])
+        # self.action_space = spaces.MultiDiscrete([16, 8, 8])
+        self.action_space = spaces.Discrete(16 * 8 * 8)
+
         
         # Define observation space
         # Board state: 8x8x13 (12 piece types + empty)
@@ -118,6 +120,23 @@ class KungFuChessEnv(gym.Env):
             pygame.display.set_caption("Kung Fu Chess")
             self.clock = pygame.time.Clock()
     
+    def get_action_mask(self) -> np.ndarray:
+        """
+        Returns a boolean mask of shape (1024,) indicating which actions are legal.
+        """
+        mask = np.zeros((16, 8, 8), dtype=bool)
+        player_pieces = self.pieces[self.current_player]
+        current_time = time.time()
+
+        for i in range(len(player_pieces)):
+            piece = player_pieces[i]
+            if not piece.is_moving and (current_time - piece.last_move_time >= self.cooldown_time):
+                legal_moves = self._get_legal_moves(piece)
+                for (row, col) in legal_moves:
+                    mask[i, row, col] = True
+
+        return mask.flatten()
+
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         """Reset the environment to initial state"""
         super().reset(seed=seed)
@@ -136,7 +155,9 @@ class KungFuChessEnv(gym.Env):
         
         self._setup_initial_board()
         
-        return self._get_observation(), {}
+        obs, info = self._get_observation(), {}
+
+        return obs, info
     
     def _setup_initial_board(self):
         """Set up the initial chess board position"""
@@ -165,7 +186,8 @@ class KungFuChessEnv(gym.Env):
         current_time = time.time()
         
         # Parse action
-        piece_index, target_row, target_col = action
+        # piece_index, target_row, target_col = action
+        piece_index, target_row, target_col = np.unravel_index(action, (16, 8, 8))
         target_pos = (target_row, target_col)
         
         # Get current player's pieces
@@ -211,7 +233,7 @@ class KungFuChessEnv(gym.Env):
             'positional_reward': positional_reward,
             'win_reward': win_reward
         }
-        
+
         return observation, reward, terminated, truncated, info
     
     def _attempt_move(self, piece: Piece, target_pos: Tuple[int, int], current_time: float) -> float:
@@ -262,6 +284,18 @@ class KungFuChessEnv(gym.Env):
         
         return False
     
+    # Get all legal moves for a particular piece
+    def _get_legal_moves(self, piece: Piece) -> List[Tuple[int, int]]:
+        """Get all valid moves for a piece"""
+        legal_moves = []
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                target_pos = (row, col)
+                if self._is_valid_move(piece, target_pos):
+                    legal_moves.append(target_pos)
+        return legal_moves
+
+
     def _is_valid_pawn_move(self, piece: Piece, row_diff: int, col_diff: int, target_pos: Tuple[int, int]) -> bool:
         """Validate pawn move"""
         direction = -1 if piece.color == Color.WHITE else 1

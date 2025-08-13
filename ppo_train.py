@@ -9,11 +9,11 @@ import os
 import time
 from typing import Callable
 
-from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
+from sb3_contrib import MaskablePPO
+from sb3_contrib.common.wrappers import ActionMasker
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 import torch
 
 from kung_fu_chess_env import KungFuChessEnv, GameMode
@@ -29,6 +29,8 @@ def make_env(game_mode: GameMode = GameMode.LIGHTNING, rank: int = 0) -> Callabl
     """
     def _init() -> KungFuChessEnv:
         env = KungFuChessEnv(mode=game_mode)
+        # Wrap the environment with ActionMasker for PPO
+        env = ActionMasker(env, lambda env: env.get_action_mask())
         env = Monitor(env, f"./logs/train_env_{rank}")
         return env
     return _init
@@ -64,13 +66,16 @@ def train_ppo_agent(
     
     # Create vectorized environment
     # Use DummyVecEnv for WSL compatibility (avoids multiprocessing issues)
-    env = DummyVecEnv([make_env(game_mode, i) for i in range(n_envs)])
+    if n_envs > 1:
+        env = DummyVecEnv([make_env(game_mode, i) for i in range(n_envs)])
+    else:
+        env = DummyVecEnv([make_env(game_mode)])
     
     # Create evaluation environment (same type as training env)
     # eval_env = DummyVecEnv([make_env(game_mode, 999)])
     
     # PPO hyperparameters optimized for complex environments
-    model = PPO(
+    model = MaskablePPO(
         "MultiInputPolicy",
         env,
         # Learning rate with schedule
@@ -145,9 +150,9 @@ def train_ppo_agent(
 
 if __name__ == "__main__":
     # Training configuration
-    TOTAL_TIMESTEPS = 1_000_000  # 1M timesteps for good learning
+    TOTAL_TIMESTEPS = 20_000_000  # 1M timesteps for good learning
     GAME_MODE = GameMode.LIGHTNING  # Fast-paced training
-    N_ENVS = 4  # Parallel environments for faster training
+    N_ENVS = 8  # Parallel environments for faster training
     
     # Start training
     train_ppo_agent(
